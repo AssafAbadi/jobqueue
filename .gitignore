@@ -57,3 +57,4 @@
 src/main/resources/application.properties # Ignore the actual application.properties with secrets
 src/main/resources/credentials.json
 src/main/resources/tokens/StoredCredential
+*.properties
