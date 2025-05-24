@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "JobqueueApplication",
+            "request": "launch",
+            "mainClass": "com.example.jobqueue.JobqueueApplication",
+            "projectName": "jobqueue"
+        },
+        {
+            "type": "java",
+            "name": "JobqueueApplication",
+            "request": "launch",
+            "mainClass": "com.jobqueue.JobqueueApplication",
+            "projectName": "jobqueue"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-Main<jobqueue>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.jobqueue.Main",
+            "projectName": "jobqueue",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
