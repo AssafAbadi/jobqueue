@@ -1,0 +1,59 @@
+# Generic ignore rules
+.DS_Store # macOS specific
+.idea/ # IntelliJ IDEA project files
+*.iml # IntelliJ IDEA module files
+*.ipr # IntelliJ IDEA project files
+*.iws # IntelliJ IDEA workspace files
+
+# Maven/Gradle build output
+/target/
+/build/
+
+# STS specific files
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# NetBeans specific files
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code specific files
+.vscode/
+
+# Logs
+*.log
+
+# Maven Wrapper - keep the wrapper scripts but ignore the jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot specific files
+# If you use a devtools restart directory
+# ./.restartedapp
+
+# Java specific files
+*.class
+*.jar
+*.war
+*.ear
+# javadoc
+/javadoc/
+# native image
+/native/
+
+# Package Files #
+*.zip
+*.tar.gz
+*.rar
+
+# Credentials and sensitive files - CRITICAL to ignore!
+src/main/resources/application.properties # Ignore the actual application.properties with secrets
+src/main/resources/credentials.json
+src/main/resources/tokens/StoredCredential
