@@ -34,7 +34,7 @@ To run the Job Search Tracker application locally, follow these steps:
 ### 1. Prerequisites
 
 * **Java Development Kit (JDK) 17 or higher:** Download and install from [Oracle JDK](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://openjdk.org/install/).
-* **Maven:** Typically included with Spring Boot CLI or integrated into IDEs like IntelliJ IDEA. If not, download from [Apache Maven](https://maven.apache.org/download.cgi).
+* **Maven:** download from [Apache Maven](https://maven.apache.org/download.cgi).
 * **PostgreSQL Server:**
     * Install PostgreSQL on your machine. You can download it from [PostgreSQL Downloads](https://www.postgresql.org/download/).
     * Ensure the PostgreSQL server is running on port `5432`.
@@ -94,7 +94,7 @@ This file contains the basic application settings.
     This command will download all dependencies, compile the code, and generate the JAR file in the `target/` directory.
 3.  Run the application:
     ```bash
-    java -jar target/jobqueue-application.jar # Or the exact name of the generated JAR file
+    java -jar target/jobqueue-application.jar 
     ```
 
 **Using an IDE (e.g., IntelliJ IDEA or VS Code with appropriate extensions):**
