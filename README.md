@@ -46,14 +46,13 @@ To run the Job Search Tracker application locally, follow these steps:
 * **Gmail API Access:**
     * Enable the Gmail API in your Google Cloud Platform project.
     * Create OAuth 2.0 Client IDs for your application.
-    * Download the JSON credentials file and place it at `src/main/resources/tokens/StoredCredential` (or another path as specified by your code). **Crucially:** Ensure this file is listed in your `.gitignore` to prevent it from being committed to Git.
+    * Download the JSON credentials file and place it at `src/main/resources/tokens/StoredCredential`
 * **OpenAI API Access:**
     * Sign up for OpenAI and obtain an API key.
 
 ### 2. Project Configuration (`application.properties.EXAMPLE`)
 
 This file contains the basic application settings.
-**Important: Your actual `application.properties` file (containing your secrets) is not committed to Git; only the `application.properties.EXAMPLE` file is part of the repository.**
 
 1.  **Create a new file named `application.properties`** in the `src/main/resources/` directory.
 2.  **Copy the content** from `application.properties.EXAMPLE` into your new `application.properties` file.
@@ -103,25 +102,12 @@ This file contains the basic application settings.
 
 1.  Open the project in your IDE.
 2.  Ensure your JDK is correctly configured.
-3.  Locate your main application file (e.g., `JobqueueApplication.java` or the file annotated with `@SpringBootApplication` and containing the `main` method).
-4.  Click the "Run" button (usually a green arrow) next to it.
+3.  Locate your main application file 'JobqueueApplication.java`.
+4.  Click the "Run" button next to it.
 
-## API Usage
-
-Once the application is running, it will listen for connections on a specific port (typically 8080 by default, unless configured otherwise).
-
-* **Example Endpoints (your actual endpoints might differ):**
-    * `POST /api/emails/process`: To submit and process emails.
-    * `GET /api/emails/{id}`: To retrieve the status of a specific email.
-    * `GET /api/emails/status/{status}`: To retrieve emails by a specific status.
-
-**Further API documentation (such as Swagger/OpenAPI) might be available at:**
-`http://localhost:8080/swagger-ui.html` (if Swagger is enabled in the project).
 
 ## Contributing
 
 If you wish to contribute to the project, please fork the repository, create a new branch, and submit a Pull Request with your changes.
 
-## License
 
-[Specify your project's license type here, e.g., MIT, Apache 2.0, etc.]
