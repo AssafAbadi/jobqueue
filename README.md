@@ -1,4 +1,3 @@
-Here's a detailed and comprehensive README for your Job Search Tracker project in English:
 
 ---
 
