@@ -16,8 +16,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.example.JobNotFoundException;
-
+/**
+ * JobController is a REST controller that handles HTTP requests related to job
+ * management. It provides endpoints for adding, retrieving, updating, and
+ * deleting jobs.
+ */
 @RestController
 @RequestMapping("/jobs") //define the base URL for this controller
 public class JobController {
