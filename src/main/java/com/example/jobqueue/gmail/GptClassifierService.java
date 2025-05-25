@@ -46,11 +46,12 @@ public class GptClassifierService {// This class is responsible for interacting 
             1. Analyze the email content for keywords and phrases strongly indicating one of the three categories.
             2. If the email clearly indicates a rejection, the category should be 'Rejected'. Look for phrases like 'sorry but', 'we will not be moving forward', 'your application was not successful', 'we are unable to offer you', 'rejected'.
             3. If the email invites you for an interview or discusses scheduling an interview, the category should be 'Interview'. Look for phrases like 'interview invitation', 'we would like to schedule an interview', 'available times for an interview', 'next steps in the interview process'.
-            4. If the email suggests your application is still under consideration, or you are in a pool of candidates, or there will be further communication at a later date without a clear interview invitation or rejection, the category should be 'Waiting'. Look for phrases like 'your application is under review', 'we will be in touch', 'we are still evaluating candidates', 'your profile has been shortlisted','your application was sent'.
+            4. If the email suggests your application is still under consideration, or you are in a pool of candidates, or there will be further communication at a later date without a clear interview invitation or rejection, the category should be 'Waiting'. Look for phrases like 'your application is under review', 'we will be in touch', 'we are still evaluating candidates', 'your profile has been shortlisted'.
             5. If the email content is not clearly related to a job application or the job search process at all, you should ignore it and return the string "null".
             6. Return your classification in the exact format: 'Company Name: Category'.
             7. The 'Company Name' should be the name of the company that sent the email, if it is clearly identifiable in the email content.
             8. You MUST return one of EXACTLY the following categories: 1.INTERVIEW 2.REJECTED 3.WAITING Use exactly one of these words—nothing else.
+            9.If it says in the header or the body 'your application was sent', it should be in the 'Waiting' category.
             Email content: """ + emailContent;
 
         ChatMessage message = new ChatMessage(ChatMessageRole.USER.value(), prompt);// Create a chat message with the email content as the prompt
