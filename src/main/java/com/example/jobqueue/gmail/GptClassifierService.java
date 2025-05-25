@@ -50,7 +50,7 @@ public class GptClassifierService {// This class is responsible for interacting 
             5. If the email content is not clearly related to a job application or the job search process at all, you should ignore it and return the string "null".
             6. Return your classification in the exact format: 'Company Name: Category'.
             7. The 'Company Name' should be the name of the company that sent the email, if it is clearly identifiable in the email content.
-            8. You MUST return one of EXACTLY the following categories: Interview, Rejected, Waiting. Use exactly one of these words—nothing else.
+            8. You MUST return one of EXACTLY the following categories: INTERVIEW, REJECTED, WAITING. Use exactly one of these words—nothing else.
             Email content: """ + emailContent;
 
         ChatMessage message = new ChatMessage(ChatMessageRole.USER.value(), prompt);// Create a chat message with the email content as the prompt
@@ -148,11 +148,11 @@ public class GptClassifierService {// This class is responsible for interacting 
 
             try {
                 String normalizedStatus = normalizeStatus(statusString);// Normalize the status string to a standard format
-                JobStatus statusEnum = JobStatus.valueOf(normalizedStatus);// Convert the status string to the JobStatus enum, ensuring it matches one of the defined statuses
                 if (!JobStatus.isValid(normalizedStatus)) {// Check if the normalized status is a valid JobStatus
                     System.err.println("Invalid status from GPT: '" + normalizedStatus + "'");
                     return null;
                 }
+                JobStatus statusEnum = JobStatus.valueOf(normalizedStatus);// Convert the status string to the JobStatus enum, ensuring it matches one of the defined statuses
                 return new ParsedClassification(companyName, statusEnum);
             } catch (IllegalArgumentException e) {
                 System.err.println("Invalid status from GPT: '" + statusString + "'");
@@ -172,15 +172,15 @@ public class GptClassifierService {// This class is responsible for interacting 
      * "Waiting".
      */
     public static String normalizeStatus(String value) {
-        value = value.toLowerCase();
+        value = value.toUpperCase();
         if (value.contains("reject")) {
             return "Rejected";
         }
         if (value.contains("interview")) {
-            return "Interview";
+            return "REJECTED";
         }
         if (value.contains("wait")) {
-            return "Waiting";
+            return "WAITING";
         }
         return value;
     }
