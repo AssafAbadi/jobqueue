@@ -6,8 +6,8 @@ import java.util.concurrent.CompletionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import com.example.jobqueue.Job;
 import com.example.jobqueue.JobService;
@@ -40,78 +40,169 @@ public class GptClassifierService {// This class is responsible for interacting 
      */
     public CompletableFuture<Job> classifyEmail(String emailContent) {
         String prompt = """
-                Classify the content of this email into one of the following categories: Interview, Rejected, Waiting.
+            Classify the content of this email into one of the following categories: Interview, Rejected, Waiting.
 
-                Instructions:
-                1. Analyze the email content for keywords and phrases strongly indicating one of the three categories.
-                2. If the email clearly indicates a rejection, the category should be 'Rejected'. Look for phrases like 'sorry but', 'we will not be moving forward', 'your application was not successful', 'we are unable to offer you', 'rejected'.
-                3. If the email invites you for an interview or discusses scheduling an interview, the category should be 'Interview'. Look for phrases like 'interview invitation', 'we would like to schedule an interview', 'available times for an interview', 'next steps in the interview process'.
-                4. If the email suggests your application is still under consideration, or you are in a pool of candidates, or there will be further communication at a later date without a clear interview invitation or rejection, the category should be 'Waiting'. Look for phrases like 'your application is under review', 'we will be in touch', 'we are still evaluating candidates', 'your profile has been shortlisted'.
-                5. If the email content is not clearly related to a job application or the job search process at all, you should ignore it and return the string "null".
-                6. Return your classification in the exact format: 'Company Name: Category'.
-                7. The 'Company Name' should be the name of the company that sent the email, if it is clearly identifiable in the email content.
-                Email content: """ + emailContent;
+            Instructions:
+            1. Analyze the email content for keywords and phrases strongly indicating one of the three categories.
+            2. If the email clearly indicates a rejection, the category should be 'Rejected'. Look for phrases like 'sorry but', 'we will not be moving forward', 'your application was not successful', 'we are unable to offer you', 'rejected'.
+            3. If the email invites you for an interview or discusses scheduling an interview, the category should be 'Interview'. Look for phrases like 'interview invitation', 'we would like to schedule an interview', 'available times for an interview', 'next steps in the interview process'.
+            4. If the email suggests your application is still under consideration, or you are in a pool of candidates, or there will be further communication at a later date without a clear interview invitation or rejection, the category should be 'Waiting'. Look for phrases like 'your application is under review', 'we will be in touch', 'we are still evaluating candidates', 'your profile has been shortlisted'.
+            5. If the email content is not clearly related to a job application or the job search process at all, you should ignore it and return the string "null".
+            6. Return your classification in the exact format: 'Company Name: Category'.
+            7. The 'Company Name' should be the name of the company that sent the email, if it is clearly identifiable in the email content.
+            8. You MUST return one of EXACTLY the following categories: Interview, Rejected, Waiting. Use exactly one of these words—nothing else.
+            Email content: """ + emailContent;
 
-        ChatMessage message = new ChatMessage(ChatMessageRole.USER.value(), prompt);// Create a ChatMessage object with the prompt
+        ChatMessage message = new ChatMessage(ChatMessageRole.USER.value(), prompt);// Create a chat message with the email content as the prompt
 
         ChatCompletionRequest request = ChatCompletionRequest.builder()
                 .model("gpt-3.5-turbo")
                 .messages(Arrays.asList(message))
-                .build();// Create a ChatCompletionRequest object with the message
+                .build();// Build the request for the OpenAI API with the chat message
 
-        // 1. Asynchronously call OpenAI API
+        return sendClassificationRequestAsync(request)// Asynchronously send the classification request to OpenAI API
+                .thenCompose(this::processClassificationResponse)
+                .exceptionally(ex -> {
+                    System.err.println("Final classification error for email: " + emailContent + ". Cause: " + ex.getCause().getMessage());
+                    throw new CompletionException("Failed to classify email", ex.getCause());
+                });
+    }
+
+    /**
+     * 1. Asynchronously call OpenAI API with the classification request.
+     *
+     * @param request The ChatCompletionRequest containing the email content and
+     * prompt.
+     * @return A CompletableFuture containing the response string from OpenAI
+     * API.
+     */
+    private CompletableFuture<String> sendClassificationRequestAsync(ChatCompletionRequest request) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                ChatCompletionResult result = openAiApiService.createChatCompletion(request);//this is a blocking call to the OpenAI API
-                return result.getChoices().get(0).getMessage().getContent().trim();//trim the response to remove leading and trailing whitespace
+                ChatCompletionResult result = openAiApiService.createChatCompletion(request);// Send the request to OpenAI API and get the result
+                return result.getChoices().get(0).getMessage().getContent().trim();// Extract the content of the first choice from the result
             } catch (Exception e) {
                 System.err.println("Error calling OpenAI API: " + e.getMessage());
-                // Wrap and re-throw to be caught by .exceptionally later in the chain
                 throw new CompletionException("Failed to get response from OpenAI API", e);
             }
-        }).thenCompose(response -> { // Use thenCompose for nesting CompletableFutures
-            // 2. Process the response from ChatGPT
-            if (response == null || "null".equalsIgnoreCase(response)) {
-                System.out.println("GPT returned null, email ignored.");
-                // Return a CompletableFuture that is already completed with a null result
-                return CompletableFuture.completedFuture(null);
-            }
-
-            // Using Regex for parsing of "Company Name: Status" format
-            Pattern pattern = Pattern.compile("([^:]+):\\s*(.*)");//this is the regex pattern to match the company name and status
-            Matcher matcher = pattern.matcher(response);// Create a Pattern and Matcher to extract company name and status
-
-            String companyName;
-            String status;
-
-            if (matcher.matches()) { // This checks if the response matches the expected format of "Company Name: Status"
-                companyName = matcher.group(1).trim();// Extract the company name
-                status = matcher.group(2).trim();// Extract the status
-            } else {
-                System.err.println("GPT response not in expected format: '" + response + "'");
-                // If the format is wrong, we treat it as unclassifiable
-                return CompletableFuture.completedFuture(null);
-            }
-
-            System.out.println("Classified Company: " + companyName + ", Status: " + status);
-
-            // 3. Asynchronously check and update/create the Job using JobService
-            // This nested supplyAsync ensures the database operation also runs in a separate thread
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    // Attempt to retrieve the job by name. This is a synchronous call to JobService.
-                    return jobService.createOrUpdateJob(companyName, status);
-                } catch (Exception e) {
-                    // Catch any other unexpected exceptions during JobService interaction
-                    System.err.println("Error processing classified job for company '" + companyName + "': " + e.getMessage());
-                    throw new CompletionException("Failed to process classified job in DB", e);
-                }
-            });
-        }).exceptionally(ex -> {
-            // This .exceptionally handles any CompletionException (or other RuntimeExceptions)
-            // that occurred earlier in the CompletableFuture chain.
-            System.err.println("Final classification error for email: " + emailContent + ". Cause: " + ex.getCause().getMessage());
-            throw new CompletionException("Failed to classify email", ex.getCause());
         });
     }
+
+    /**
+     * 2. Process the GPT response string into a Job object if valid.
+     *
+     * @param response The response string from OpenAI API containing the
+     * classification result.
+     * @return A CompletableFuture containing the Job object if classification
+     * was successful, or null if it failed.
+     */
+    private CompletableFuture<Job> processClassificationResponse(String response) {
+        if (response == null || "null".equalsIgnoreCase(response)) {// Check if the response is null or the string "null"
+            System.out.println("GPT returned null, email ignored.");
+            return CompletableFuture.completedFuture(null);
+        }
+
+        // Parse the GPT response for company and status
+        ParsedClassification parsed = parseClassificationResponse(response);
+
+        if (parsed == null) {
+            System.err.println("GPT response not in expected format: '" + response + "'");
+            return CompletableFuture.completedFuture(null);
+        }
+
+        // Defensive check for null or empty companyName or status
+        if (parsed.companyName == null || parsed.companyName.isEmpty()) {
+            System.err.println("Parsed company name or status is empty: Company='" + parsed.companyName + "', Status='" + parsed.status + "'");
+            return CompletableFuture.completedFuture(null);
+        }
+
+        System.out.println("Classified Company: " + parsed.companyName + ", Status: " + parsed.status);
+
+        // 3. Async database update or creation of Job entity
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return jobService.createOrUpdateJob(parsed.companyName, parsed.status.toString());// Create or update the Job entity in the database in the same function for transactional integrity
+            } catch (Exception e) {
+                System.err.println("Error processing classified job for company '" + parsed.companyName + "': " + e.getMessage());
+                throw new CompletionException("Failed to process classified job in DB", e);
+            }
+        });
+    }
+
+    /**
+     * Parses the GPT response string to extract company name and status.
+     * Returns null if the response is not in the expected "Company Name:
+     * Status" format.
+     *
+     * @param response The response string from OpenAI API.
+     * @return A ParsedClassification object containing the company name and
+     * status, or null if parsing fails.
+     */
+    private ParsedClassification parseClassificationResponse(String response) {
+        Pattern pattern = Pattern.compile("([^:]+):\\s*(.*)");
+        Matcher matcher = pattern.matcher(response);
+
+        if (matcher.matches()) { // This checks if the response matches the expected format of "Company Name: Status"
+            String companyName = matcher.group(1).trim(); // Extract the company name
+            String statusString = matcher.group(2).trim();// Extract the status
+
+            try {
+                String normalizedStatus = normalizeStatus(statusString);// Normalize the status string to a standard format
+                JobStatus statusEnum = JobStatus.valueOf(normalizedStatus);// Convert the status string to the JobStatus enum, ensuring it matches one of the defined statuses
+                if (!JobStatus.isValid(normalizedStatus)) {// Check if the normalized status is a valid JobStatus
+                    System.err.println("Invalid status from GPT: '" + normalizedStatus + "'");
+                    return null;
+                }
+                return new ParsedClassification(companyName, statusEnum);
+            } catch (IllegalArgumentException e) {
+                System.err.println("Invalid status from GPT: '" + statusString + "'");
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalizes the status string to a standard format. Converts the status to
+     * lower case and checks for keywords to determine the final status.
+     *
+     * @param value The status string to normalize.
+     * @return A normalized status string: "Interview", "Rejected", or
+     * "Waiting".
+     */
+    public static String normalizeStatus(String value) {
+        value = value.toLowerCase();
+        if (value.contains("reject")) {
+            return "Rejected";
+        }
+        if (value.contains("interview")) {
+            return "Interview";
+        }
+        if (value.contains("wait")) {
+            return "Waiting";
+        }
+        return value;
+    }
+
+    /**
+     * Helper class to hold parsed classification result.
+     *
+     * @param companyName The name of the company extracted from the response.
+     * @param status The job status extracted from the response (Interview,
+     * Rejected, Waiting).
+     * @return ParsedClassification object containing the company name and
+     * status.
+     */
+    private static class ParsedClassification {
+
+        final String companyName;
+        final JobStatus status;
+
+        ParsedClassification(String companyName, JobStatus status) {
+            this.companyName = companyName;
+            this.status = status;
+        }
+    }
+
 }

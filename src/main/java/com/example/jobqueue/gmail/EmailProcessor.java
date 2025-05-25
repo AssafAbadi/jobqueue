@@ -1,19 +1,9 @@
 package com.example.jobqueue.gmail;
 
-import com.google.api.services.gmail.Gmail;
-import com.google.api.services.gmail.model.ListMessagesResponse;
-import com.google.api.services.gmail.model.Message;
-import com.google.common.util.concurrent.RateLimiter;
-import com.example.jobqueue.JobService;
-
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-
-import org.springframework.stereotype.Component;
-
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -21,8 +11,26 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.springframework.stereotype.Component;
+
+import com.example.jobqueue.Job;
+import com.example.jobqueue.JobService;
+import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.model.ListMessagesResponse;
+import com.google.api.services.gmail.model.Message;
+import com.google.common.util.concurrent.RateLimiter;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
+/**
+ * EmailProcessor is responsible for the reading of emails from Gmail,
+ * classifying them using GPT, and adding jobs to the database. It uses
+ * asynchronous processing to handle potentially long-running tasks without
+ * blocking.
+ */
 @Component
-public class EmailProcessor {// This class orchestrates the reading of emails from Gmail, classifying them using GPT, and adding jobs to the database.
+public class EmailProcessor {
 
     private final JobService jobService;
     private final GptClassifierService gptClassifierService;
@@ -61,7 +69,7 @@ public class EmailProcessor {// This class orchestrates the reading of emails fr
         // This immediately frees up the @PostConstruct thread, allowing the application to start quickly.
         CompletableFuture.runAsync(() -> {
             try {
-                Gmail service = GmailService.getGmailService(); // Synchronous operation: Get the Gmail service client
+                Gmail service = GmailService.getGmailService(); // Synchronous operation: get Gmail client
 
                 String nextPageToken = null; // Holds the page token for the next email
                 AtomicInteger processedCount = new AtomicInteger(0); // Atomic counter for processed emails
@@ -71,7 +79,7 @@ public class EmailProcessor {// This class orchestrates the reading of emails fr
                 while (processedCount.get() < maxEmailsToProcess) {
                     // Get the next "page" (a single email) from the Gmail API
                     ListMessagesResponse response = GmailReader.getNextMessageSummaryPage(service, nextPageToken);
-                    List<Message> messages = response.getMessages(); // I only get the headers of the emails to save time and resources
+                    List<Message> messages = response.getMessages(); // Only get headers for efficiency
 
                     if (messages == null || messages.isEmpty()) {
                         System.out.println("No more new unread messages found from Gmail API.");
@@ -80,50 +88,11 @@ public class EmailProcessor {// This class orchestrates the reading of emails fr
 
                     // Since we requested maxResults=1, we expect at most one message here
                     Message emailSummary = messages.get(0);
-                    processedCount.incrementAndGet();// Increment the processed email count
+                    processedCount.incrementAndGet(); // Increment the processed email count
                     System.out.println("Initiating processing for email ID: " + emailSummary.getId() + " (Email " + processedCount + ")");
 
                     // --- Start the ASYNCHRONOUS processing chain for this SINGLE email ---
-                    CompletableFuture.supplyAsync(() -> {
-                        // A. Apply the GPT rate limit BEFORE reading email content and classifying.
-                        // This will block the specific thread processing this email if needed.
-                        gptRateLimiter.acquire();
-
-                        try {
-                            // B. Read the full email content. This operation is dispatched to emailProcessingExecutor.
-                            // This allows the email content reading to be non-blocking and run in parallel with other tasks.
-                            // Note: This is a synchronous call to Gmail API, but it runs in the emailProcessingExecutor thread.
-                            return GmailReader.getPlainTextFromMessage(emailSummary.getId(), service);
-                        } catch (IOException e) {
-                            throw new CompletionException("Failed to read full email content for ID " + emailSummary.getId(), e);
-                        }
-                    }, emailProcessingExecutor) // Steps A and B run in emailProcessingExecutor
-                            .thenCompose(optionalEmailContent -> { // We receive an Optional<String> for the email content
-                                if (optionalEmailContent.isPresent()) {
-                                    // C. Once content is ready, asynchronously classify it using GPT.
-                                    return gptClassifierService.classifyEmail(optionalEmailContent.get());// This is a non-blocking call 
-                                    // to the OpenAI API and will return a CompletableFuture<Job>.
-                                } else {
-                                    System.out.println("No plain text content found for email ID " + emailSummary.getId() + ". Skipping classification.");
-                                    return CompletableFuture.completedFuture(null); // No content, so no Job
-                                }
-                            })
-                            .thenCompose(classifiedJob -> {
-                                // D. Once classified, if a new Job needs to be added, do so asynchronously.
-                                if (classifiedJob != null) {
-                                    System.out.println("Attempting to add classified job: " + classifiedJob.getName() + " for email ID " + emailSummary.getId());
-                                    return CompletableFuture.supplyAsync(() -> jobService.addJob(classifiedJob), emailProcessingExecutor)// This is a non-blocking call to the database although addJob is a synchronous call
-                                            .thenApply(newlyAddedJob -> null);
-                                } else {
-                                    System.out.println("Email ID " + emailSummary.getId() + " either updated existing job or was ignored by classifier.");
-                                    return CompletableFuture.completedFuture(null);
-                                }
-                            })
-                            .exceptionally(ex -> {
-                                // E. Handle exceptions at any stage in this email's processing chain.
-                                System.err.println("Failed to fully process email ID " + emailSummary.getId() + ". Error: " + ex.getCause().getMessage());
-                                return null; // Allows this specific Future to complete without crashing the whole application
-                            });
+                    processSingleEmailAsync(emailSummary, service);// This method starts the processing chain for a single email
                     // --- End of ASYNCHRONOUS processing chain for this SINGLE email ---
 
                     // Get the token for the next email from the current response
@@ -132,7 +101,6 @@ public class EmailProcessor {// This class orchestrates the reading of emails fr
                         System.out.println("Last email page fetched. No more page tokens.");
                         break; // No more emails to read
                     }
-
                 }
                 System.out.println("Finished initiating processing for a total of " + processedCount + " emails.");
 
@@ -143,7 +111,87 @@ public class EmailProcessor {// This class orchestrates the reading of emails fr
             } catch (GeneralSecurityException e) {
                 System.err.println("Unexpected error during email fetching and processing orchestration: " + e.getMessage());
             }
-        }, gmailFetchExecutor); // This  runs on the dedicated gmailFetchExecutor
+        }, gmailFetchExecutor); // This runs on the dedicated gmailFetchExecutor
+    }
+
+    /**
+     * Processes a single email asynchronously: 1. Reads the full plain text
+     * content of the email. 2. Classifies the email using GPT if content is
+     * present. 3. Adds the classified job to the database if classification was
+     * successful.
+     *
+     * @param emailSummary The summary of the email to process.
+     * @param service The Gmail service instance to use for reading the email
+     * content.
+     */
+    private void processSingleEmailAsync(Message emailSummary, Gmail service) {
+        CompletableFuture
+                .supplyAsync(() -> readEmailContentWithRateLimit(emailSummary.getId(), service), emailProcessingExecutor)
+                .thenCompose(optionalContent -> classifyEmailIfPresent(optionalContent, emailSummary.getId()))
+                .thenCompose(classifiedJob -> addClassifiedJobIfPresent(classifiedJob, emailSummary.getId()))
+                .exceptionally(ex -> {
+                    // Error handler for the entire chain
+                    System.err.println("Failed to fully process email ID " + emailSummary.getId() + ". Error: " + ex.getCause().getMessage());
+                    return null;
+                });
+    }
+
+    /**
+     * Acquire GPT rate limit and try reading the full plain text from the email
+     *
+     * @param messageId The ID of the email to read
+     * @param service The Gmail service instance to use for reading the email
+     * content
+     * @return An Optional containing the plain text content of the email, or an
+     * empty Optional if not found
+     * @throws CompletionException if reading the email content fails
+     */
+    private Optional<String> readEmailContentWithRateLimit(String messageId, Gmail service) {
+        gptRateLimiter.acquire(); // Block if needed to respect rate limits
+        try {
+            return GmailReader.getPlainTextFromMessage(messageId, service);
+        } catch (IOException e) {
+            throw new CompletionException("Failed to read full email content for ID " + messageId, e);
+        }
+    }
+
+    /**
+     * Classify email if plain text is present
+     *
+     * @param plainTextContent The plain text content of the email, wrapped in
+     * an Optional
+     * @param messageId The ID of the email being processed
+     * @return A CompletableFuture that completes with the classified Job, or
+     * null if classification was skipped
+     */
+    private CompletableFuture<Job> classifyEmailIfPresent(Optional<String> plainTextContent, String messageId) {
+        if (plainTextContent.isPresent()) {
+            return gptClassifierService.classifyEmail(plainTextContent.get());
+        } else {
+            System.out.println("No plain text content found for email ID " + messageId + ". Skipping classification.");
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    /**
+     * If the classifier returned a job, add it to DB
+     *
+     * @param classifiedJob The Job object returned by the classifier, or null
+     * if classification was skipped
+     * @param messageId The ID of the email being processed
+     * @return A CompletableFuture that completes when the job is added to the
+     * database, or null if no job was classified
+     */
+    private CompletableFuture<Void> addClassifiedJobIfPresent(Job classifiedJob, String messageId) {
+        if (classifiedJob != null) {
+            System.out.println("Attempting to add classified job: " + classifiedJob.getName() + " for email ID " + messageId);
+            return CompletableFuture
+                    .supplyAsync(() -> jobService.addJob(classifiedJob), emailProcessingExecutor)
+                    .thenApply(ignored -> null);
+        } else {
+            System.out.println("Email ID " + messageId + " either updated existing job or was ignored by classifier.");
+            return CompletableFuture.completedFuture(null);
+        }
     }
 
     /**

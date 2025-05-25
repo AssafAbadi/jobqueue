@@ -7,18 +7,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartBody;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 
 public class GmailReader {
 
     /**
-     * reads the next page of unread messages from the Gmail inbox. it uses the
+     * reads the next email of unread emails from the Gmail inbox. it uses the
      * Gmail API to fetch the messages.
      *
      * @param service the Gmail service object
@@ -31,7 +32,7 @@ public class GmailReader {
     public static ListMessagesResponse getNextMessageSummaryPage(Gmail service, String pageToken) throws IOException {
         return service.users().messages().list("me")
                 .setMaxResults(1L) //only 1 mail at a time to make the process faster becaue now we can classify the mail and fetch the next mail
-                .setQ("in:inbox category:primary is:unread newer_than:41d") //only unread mails in the inbox
+                .setQ("in:inbox category:primary is:unread newer_than:7d") //only unread mails in the inbox
                 .setIncludeSpamTrash(false) // don't include spam or trash
                 .setPageToken(pageToken) //use the page token to get the next page of messages
                 .execute();//no need for execption handling here gmail api will throw an exception if there is a problem
