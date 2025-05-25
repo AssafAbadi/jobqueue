@@ -115,10 +115,10 @@ public class EmailProcessor {
     }
 
     /**
-     * Processes a single email asynchronously: 1. Reads the full plain text
-     * content of the email. 2. Classifies the email using GPT if content is
-     * present. 3. Adds the classified job to the database if classification was
-     * successful.
+     * Processes a single email asynchronously:
+     *  1. Reads the full plain text content of the email.
+     *  2. Classifies the email using GPT if content is present.
+     *  3. Adds the classified job to the database if classification was successfulץ
      *
      * @param emailSummary The summary of the email to process.
      * @param service The Gmail service instance to use for reading the email
