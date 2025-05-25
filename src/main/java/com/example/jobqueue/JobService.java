@@ -67,7 +67,7 @@ public class JobService {// This class is responsible for business logic and dat
      * @return The created or updated Job object.
      */
     public Job createOrUpdateJob(String companyName, String status) {
-        Optional<Job> existingJobOptional = jobRepository.getJobByName(companyName); // שימוש ב-findByName מה-Repository
+        Optional<Job> existingJobOptional = jobRepository.getJobByName(companyName); // Using the custom query to find by name
 
         if (existingJobOptional.isPresent()) {
             Job existingJob = existingJobOptional.get();
