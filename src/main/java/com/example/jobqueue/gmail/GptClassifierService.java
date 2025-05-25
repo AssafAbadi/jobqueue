@@ -50,7 +50,7 @@ public class GptClassifierService {// This class is responsible for interacting 
             5. If the email content is not clearly related to a job application or the job search process at all, you should ignore it and return the string "null".
             6. Return your classification in the exact format: 'Company Name: Category'.
             7. The 'Company Name' should be the name of the company that sent the email, if it is clearly identifiable in the email content.
-            8. You MUST return one of EXACTLY the following categories: INTERVIEW, REJECTED, WAITING. Use exactly one of these words—nothing else.
+            8. You MUST return one of EXACTLY the following categories: 1.INTERVIEW 2.REJECTED 3.WAITING Use exactly one of these words—nothing else.
             Email content: """ + emailContent;
 
         ChatMessage message = new ChatMessage(ChatMessageRole.USER.value(), prompt);// Create a chat message with the email content as the prompt
@@ -173,13 +173,13 @@ public class GptClassifierService {// This class is responsible for interacting 
      */
     public static String normalizeStatus(String value) {
         value = value.toUpperCase();
-        if (value.contains("reject")) {
-            return "Rejected";
-        }
-        if (value.contains("interview")) {
+        if (value.contains("REJECT")) {
             return "REJECTED";
         }
-        if (value.contains("wait")) {
+        if (value.contains("INTERVIEW")) {
+            return "INTERVIEW";
+        }
+        if (value.contains("WAIT")) {
             return "WAITING";
         }
         return value;
