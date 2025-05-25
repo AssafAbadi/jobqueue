@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.example.jobqueue.gmail.JobStatus;
+
 import jakarta.transaction.Transactional;
 
 @Service
@@ -66,18 +68,18 @@ public class JobService {// This class is responsible for business logic and dat
      * @param status The status to set for the job.
      * @return The created or updated Job object.
      */
-    public Job createOrUpdateJob(String companyName, String status) {
+    public Job createOrUpdateJob(String companyName, JobStatus status) {
         Optional<Job> existingJobOptional = jobRepository.getJobByName(companyName); // Using the custom query to find by name
 
         if (existingJobOptional.isPresent()) {
             Job existingJob = existingJobOptional.get();
-            existingJob.setStatus(status);
+            existingJob.setStatus(status.name()); // Assuming status is an enum, convert it to string
             System.out.println("Updated existing job: " + companyName + " to status: " + status);
             return jobRepository.save(existingJob);
         } else {
             Job newJob = new Job();
             newJob.setName(companyName);
-            newJob.setStatus(status);
+            newJob.setStatus(status.name()); 
             System.out.println("Created new job: " + companyName + " with status: " + status);
             return jobRepository.save(newJob);
         }

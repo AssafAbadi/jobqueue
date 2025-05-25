@@ -121,7 +121,7 @@ public class GptClassifierService {// This class is responsible for interacting 
         // 3. Async database update or creation of Job entity
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return jobService.createOrUpdateJob(parsed.companyName, parsed.status.toString());// Create or update the Job entity in the database in the same function for transactional integrity
+                return jobService.createOrUpdateJob(parsed.companyName, parsed.status);// Create or update the Job entity in the database in the same function for transactional integrity
             } catch (Exception e) {
                 System.err.println("Error processing classified job for company '" + parsed.companyName + "': " + e.getMessage());
                 throw new CompletionException("Failed to process classified job in DB", e);

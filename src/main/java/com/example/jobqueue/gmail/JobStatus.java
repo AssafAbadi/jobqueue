@@ -3,11 +3,12 @@ package com.example.jobqueue.gmail;
 /**
  * Enum representing the possible statuses of a job application. This is used to
  * classify the status of a job application based on email content.
+ * Using uppercase names for enum constants to ensure java naming conventions.
  */
 public enum JobStatus {
-    Rejected,
-    Interview,
-    Waiting;
+    REJECTED,
+    INTERVIEW,
+    WAITING;
 
     /**
      * Checks if the provided string is a valid JobStatus. This method trims the
