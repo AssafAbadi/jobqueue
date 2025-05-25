@@ -32,7 +32,7 @@ public class GmailReader {
     public static ListMessagesResponse getNextMessageSummaryPage(Gmail service, String pageToken) throws IOException {
         return service.users().messages().list("me")
                 .setMaxResults(1L) //only 1 mail at a time to make the process faster becaue now we can classify the mail and fetch the next mail
-                .setQ("in:inbox category:primary is:unread newer_than:7d") //only unread mails in the inbox
+                .setQ("in:inbox category:primary is:unread newer_than:2d") //only unread mails in the inbox
                 .setIncludeSpamTrash(false) // don't include spam or trash
                 .setPageToken(pageToken) //use the page token to get the next page of messages
                 .execute();//no need for execption handling here gmail api will throw an exception if there is a problem
